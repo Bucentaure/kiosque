@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kiosque — vos articles à lire</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📰</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F1F3EE;
+  --card:#FFFFFF;
+  --ink:#1F2D28;
+  --ink-soft:#5A6B63;
+  --green:#17694E;
+  --green-deep:#0E4A36;
+  --surface:#E3E9E2;
+  --line:#D3DCD4;
+  --amber:#B97A17;
+  --danger:#A8402F;
+  --radius:14px;
+  --font-body:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-display:'Fraunces',Georgia,'Times New Roman',serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--font-body);
+  font-size:15px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+  padding-bottom:60px;
+}
+button{font-family:inherit;font-size:inherit;cursor:pointer}
+input,select{font-family:inherit;font-size:inherit;color:var(--ink)}
+:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ---------- entête ---------- */
+header{
+  max-width:1100px;margin:0 auto;padding:22px 20px 8px;
+  display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;
+}
+.wordmark{
+  font-family:var(--font-display);font-weight:650;font-size:30px;letter-spacing:-.01em;
+  color:var(--green-deep);
+}
+.wordmark small{font-family:var(--font-body);font-weight:500;font-size:12.5px;color:var(--ink-soft);margin-left:10px;letter-spacing:0}
+.head-actions{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.sync-dot{width:9px;height:9px;border-radius:50%;background:#9AA8A0;display:inline-block;margin-right:6px;vertical-align:1px}
+.sync-dot.ok{background:var(--green)}
+.sync-dot.err{background:var(--danger)}
+.sync-label{font-size:12.5px;color:var(--ink-soft)}
+
+.btn{
+  border:1px solid var(--line);background:var(--card);color:var(--ink);
+  border-radius:10px;padding:7px 13px;font-weight:500;font-size:13.5px;
+  transition:background .15s;
+}
+.btn:hover{background:var(--surface)}
+.btn.primary{background:var(--green);border-color:var(--green);color:#fff}
+.btn.primary:hover{background:var(--green-deep)}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--ink-soft)}
+.btn.ghost:hover{background:var(--surface);color:var(--ink)}
+.btn.danger{color:var(--danger)}
+.btn:disabled{opacity:.5;cursor:default}
+
+main{max-width:1100px;margin:0 auto;padding:0 20px}
+
+/* ---------- barre d'ajout ---------- */
+.addbar{
+  display:flex;gap:8px;margin:14px 0 18px;flex-wrap:wrap;
+  background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  padding:10px;box-shadow:0 1px 2px rgba(31,45,40,.05);
+}
+.addbar input[type=url]{
+  flex:1;min-width:220px;border:1px solid var(--line);border-radius:10px;
+  padding:9px 12px;background:var(--paper);
+}
+.addbar select{
+  border:1px solid var(--line);border-radius:10px;padding:9px 10px;background:var(--paper);max-width:200px;
+}
+
+/* ---------- catégories ---------- */
+.cat-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px}
+.chip{
+  display:inline-flex;align-items:center;gap:7px;
+  border:1px solid var(--line);background:var(--card);border-radius:999px;
+  padding:6px 13px;font-size:13.5px;font-weight:500;color:var(--ink);
+}
+.chip .swatch{width:9px;height:9px;border-radius:3px;flex:none}
+.chip .count{color:var(--ink-soft);font-size:12px}
+.chip.active{background:var(--ink);border-color:var(--ink);color:#fff}
+.chip.active .count{color:#cfd8d2}
+.chip:hover:not(.active){background:var(--surface)}
+
+.manage{
+  background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  padding:14px;margin:10px 0 4px;display:none;
+}
+.manage.open{display:block}
+.manage h3{margin:0 0 10px;font-size:14px;font-weight:600}
+.manage-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+.manage-row input[type=text]{border:1px solid var(--line);border-radius:8px;padding:6px 10px;background:var(--paper);flex:1;min-width:140px;max-width:280px}
+.manage-row .swatch-lg{width:16px;height:16px;border-radius:5px;flex:none;border:none;padding:0}
+
+/* ---------- outils (recherche / tri) ---------- */
+.toolbar{display:flex;gap:10px;align-items:center;margin:12px 0 16px;flex-wrap:wrap}
+.toolbar input[type=search]{
+  border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--card);
+  flex:1;min-width:180px;max-width:340px;
+}
+.toolbar .meta{font-size:12.5px;color:var(--ink-soft)}
+
+/* ---------- grille de cartes ---------- */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(255px,1fr));gap:16px}
+.card{
+  position:relative;background:var(--card);border:1px solid var(--line);
+  border-radius:var(--radius);overflow:hidden;display:flex;flex-direction:column;
+  box-shadow:0 1px 2px rgba(31,45,40,.05);
+}
+/* dos de magazine : la couleur de la catégorie */
+.card::before{
+  content:"";position:absolute;left:0;top:0;bottom:0;width:5px;
+  background:var(--spine,#9AA8A0);z-index:2;
+}
+.card .thumb{
+  height:140px;background:var(--surface);display:block;width:100%;object-fit:cover;
+}
+.card .thumb.placeholder{
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-display);font-size:34px;color:var(--ink-soft);
+}
+.card .body{padding:12px 14px 10px 17px;display:flex;flex-direction:column;gap:6px;flex:1}
+.card .domain{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);font-weight:600}
+.card h2{
+  margin:0;font-family:var(--font-display);font-weight:650;font-size:17px;line-height:1.3;
+}
+.card h2 a{color:var(--ink);text-decoration:none}
+.card h2 a:hover{color:var(--green-deep);text-decoration:underline}
+.card .desc{
+  margin:0;font-size:13px;color:var(--ink-soft);
+  display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden;
+}
+.card .foot{
+  display:flex;align-items:center;gap:6px;padding:8px 10px 10px 14px;border-top:1px solid var(--line);
+}
+.card .foot select{
+  border:1px solid var(--line);border-radius:8px;padding:4px 6px;font-size:12.5px;
+  background:var(--paper);max-width:130px;
+}
+.card .foot .spacer{flex:1}
+.icon-btn{
+  border:none;background:transparent;border-radius:8px;padding:5px 7px;font-size:14px;color:var(--ink-soft);
+}
+.icon-btn:hover{background:var(--surface);color:var(--ink)}
+.icon-btn.danger:hover{color:var(--danger)}
+.card .date{font-size:11.5px;color:var(--ink-soft)}
+.card.fetching{opacity:.7}
+.card .retry{font-size:12px;color:var(--amber);background:none;border:none;padding:0;text-decoration:underline}
+
+.empty{
+  text-align:center;padding:70px 20px;color:var(--ink-soft);
+}
+.empty .big{font-family:var(--font-display);font-size:22px;color:var(--ink);margin-bottom:8px}
+
+/* ---------- panneau synchro ---------- */
+.panel{
+  background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  padding:16px;margin:10px 0;display:none;
+}
+.panel.open{display:block}
+.panel h3{margin:0 0 6px;font-size:15px;font-family:var(--font-display);font-weight:650}
+.panel p{margin:6px 0;font-size:13.5px;color:var(--ink-soft)}
+.panel .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.hint{font-size:12.5px;color:var(--ink-soft);background:var(--surface);border-radius:8px;padding:8px 10px;margin-top:10px}
+
+/* ---------- toast ---------- */
+#toast{
+  position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);
+  background:var(--ink);color:#fff;padding:10px 18px;border-radius:10px;font-size:13.5px;
+  opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:50;max-width:90vw;
+}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+@media (max-width:560px){
+  .wordmark{font-size:24px}
+  .grid{grid-template-columns:1fr 1fr;gap:10px}
+  .card .thumb{height:100px}
+  .card h2{font-size:14.5px}
+  .card .desc{-webkit-line-clamp:4;font-size:12px}
+  .card .foot select{max-width:96px}
+}
+@media (max-width:380px){ .grid{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wordmark">Kiosque<small>vos articles, rangés et lisibles hors ligne</small></div>
+  <div class="head-actions">
+    <span><span class="sync-dot" id="syncDot"></span><span class="sync-label" id="syncLabel">synchro non liée</span></span>
+    <button class="btn ghost" id="btnSyncPanel">Synchronisation</button>
+    <button class="btn ghost" id="btnManage">Catégories</button>
+  </div>
+</header>
+
+<main>
+  <div class="panel" id="syncPanel">
+    <h3>Synchroniser entre vos appareils, sans serveur</h3>
+
+    <p><b>Option A — votre compte Google Drive (recommandée).</b> Kiosque range ses données dans l’espace
+    « données d’application » caché de votre Drive et fusionne les modifications entre tous vos appareils
+    (PC pro, PC perso, iPhone). Nécessite que cette page soit ouverte depuis une adresse <b>https</b>
+    (ex. GitHub Pages) et un identifiant OAuth gratuit — voir le guide fourni avec l’app.</p>
+    <div class="row" id="gRow">
+      <input type="text" id="gClientId" placeholder="Client ID Google (…apps.googleusercontent.com)"
+             style="flex:1;min-width:240px;border:1px solid var(--line);border-radius:8px;padding:7px 10px;background:var(--paper)">
+      <button class="btn primary" id="btnGConnect">Connecter Google Drive</button>
+      <button class="btn ghost danger" id="btnGDisconnect" style="display:none">Déconnecter</button>
+    </div>
+    <div class="hint" id="gHint"></div>
+
+    <p style="margin-top:16px"><b>Option B — fichier dans un dossier synchronisé.</b> Si un jour vous installez
+    « Google Drive pour ordinateur » (ou OneDrive, Dropbox…), liez un fichier <b>kiosque-sync.json</b> placé
+    dans le dossier synchronisé : le service le transporte entre vos PC.</p>
+    <div class="row" id="fsRow">
+      <button class="btn" id="btnCreateSync">Créer le fichier de synchro…</button>
+      <button class="btn" id="btnLinkSync">Lier un fichier existant…</button>
+      <button class="btn ghost danger" id="btnUnlink" style="display:none">Délier</button>
+    </div>
+    <div class="hint" id="fsHint"></div>
+
+    <p style="margin-top:16px"><b>Option C — manuel, zéro configuration.</b> Exportez un JSON, déposez-le sur
+    drive.google.com, puis importez-le sur l’autre appareil : l’import <b>fusionne</b> sans rien écraser.</p>
+    <div class="row">
+      <button class="btn" id="btnExport">Exporter (JSON)</button>
+      <button class="btn" id="btnImport">Importer / fusionner (JSON)</button>
+      <button class="btn" id="btnSyncNow" disabled>Synchroniser maintenant</button>
+      <input type="file" id="importFile" accept="application/json" hidden>
+    </div>
+  </div>
+
+  <div class="manage" id="managePanel">
+    <h3>Gérer les catégories</h3>
+    <div id="catList"></div>
+    <div class="manage-row">
+      <input type="text" id="newCatName" placeholder="Nouvelle catégorie…" maxlength="40">
+      <button class="btn primary" id="btnAddCat">Ajouter</button>
+    </div>
+  </div>
+
+  <form class="addbar" id="addForm">
+    <input type="url" id="urlInput" placeholder="Collez l’URL d’un article… (https://…)" required inputmode="url" autocomplete="off">
+    <select id="addCatSelect"></select>
+    <button class="btn primary" type="submit">Ajouter</button>
+  </form>
+
+  <div class="cat-row" id="chips"></div>
+
+  <div class="toolbar">
+    <input type="search" id="searchInput" placeholder="Rechercher un titre, un site…">
+    <span class="meta" id="countMeta"></span>
+  </div>
+
+  <div class="grid" id="grid"></div>
+  <div class="empty" id="empty" style="display:none">
+    <div class="big">Votre kiosque est vide</div>
+    Collez une URL ci-dessus : Kiosque récupère le titre, un résumé et l’image, puis les garde hors ligne.
+  </div>
+</main>
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+/* ===================== utilitaires ===================== */
+const $ = s => document.querySelector(s);
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const now = () => Date.now();
+const esc = s => (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const PALETTE = ['#17694E','#B97A17','#7A4E9E','#2C6FA8','#A8402F','#3E7C4F','#5A6B8A','#996B84','#4A8B86','#8A6A2F'];
+
+let state = { cats: [], items: [] };
+let currentCat = 'all';        /* 'all' | 'none' | id de catégorie */
+let query = '';
+let fileHandle = null, syncTimer = null, saveTimer = null;
+const FS_OK = 'showOpenFilePicker' in window && 'showSaveFilePicker' in window;
+
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 3200);
+}
+
+/* ===================== IndexedDB (clé / valeur) ===================== */
+function idb() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open('kiosque', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('kv');
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+async function kvGet(k) {
+  const d = await idb();
+  return new Promise((res, rej) => {
+    const q = d.transaction('kv').objectStore('kv').get(k);
+    q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error);
+  });
+}
+async function kvSet(k, v) {
+  const d = await idb();
+  return new Promise((res, rej) => {
+    const q = d.transaction('kv', 'readwrite').objectStore('kv').put(v, k);
+    q.onsuccess = () => res(); q.onerror = () => rej(q.error);
+  });
+}
+
+/* ===================== fusion (multi-appareils) ===================== */
+function mergeState(a, b) {
+  const index = l => { const o = {}; (l || []).forEach(x => { if (x && x.id) o[x.id] = x; }); return o; };
+  const mergeList = (la, lb) => {
+    const oa = index(la), ob = index(lb), out = [];
+    new Set([...Object.keys(oa), ...Object.keys(ob)]).forEach(id => {
+      const x = oa[id], y = ob[id];
+      out.push(!x ? y : !y ? x : ((y.updatedAt || 0) > (x.updatedAt || 0) ? y : x));
+    });
+    return out;
+  };
+  return { cats: mergeList(a.cats, b.cats), items: mergeList(a.items, b.items) };
+}
+function purgeTombstones(st) {
+  const cutoff = now() - 90 * 24 * 3600e3; /* on garde les suppressions 90 j pour la fusion */
+  st.items = st.items.filter(i => !(i.deleted && (i.updatedAt || 0) < cutoff));
+  st.cats  = st.cats.filter(c => !(c.deleted && (c.updatedAt || 0) < cutoff));
+}
+function persist() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => kvSet('state', state).catch(console.error), 150);
+  scheduleSync();
+}
+
+/* ===================== synchro par fichier (Google Drive local) ===================== */
+function setSyncUI(cls, label) {
+  const d = $('#syncDot'); d.className = 'sync-dot' + (cls ? ' ' + cls : '');
+  $('#syncLabel').textContent = label;
+}
+function updateSyncButtons() {
+  $('#btnSyncNow').disabled = !fileHandle && !(gClientId && HOSTED);
+  $('#btnUnlink').style.display = fileHandle ? '' : 'none';
+  $('#btnGDisconnect').style.display = (gClientId && gToken) ? '' : 'none';
+}
+async function verifyPerm(h) {
+  const o = { mode: 'readwrite' };
+  if (await h.queryPermission(o) === 'granted') return true;
+  return (await h.requestPermission(o)) === 'granted';
+}
+async function doSync(manual) {
+  if (!fileHandle) return;
+  try {
+    if (!(await verifyPerm(fileHandle))) { setSyncUI('err', 'autorisation requise — bouton « Synchroniser »'); return; }
+    setSyncUI('', 'synchronisation…');
+    let remote = null;
+    try {
+      const f = await fileHandle.getFile(); const txt = await f.text();
+      if (txt.trim()) remote = JSON.parse(txt);
+    } catch (e) { /* fichier vide ou illisible : on écrira par-dessus */ }
+    if (remote && (remote.cats || remote.items)) state = mergeState(state, remote);
+    purgeTombstones(state);
+    const w = await fileHandle.createWritable();
+    await w.write(JSON.stringify({ app: 'kiosque', version: 1, savedAt: now(), cats: state.cats, items: state.items }));
+    await w.close();
+    await kvSet('state', state);
+    setSyncUI('ok', 'synchronisé · ' + new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }));
+    renderAll();
+  } catch (e) {
+    console.error(e);
+    setSyncUI('err', 'erreur de synchro');
+    if (manual) toast('Échec de la synchronisation : ' + e.message);
+  }
+}
+/* ===================== synchro via l'API Google Drive ===================== */
+let gClientId = '', gToken = null, gTokenExp = 0, gFileId = null, gTokenClient = null;
+const HOSTED = location.protocol === 'https:' || location.hostname === 'localhost';
+const gActive = () => !!gClientId && (gToken || gTokenExp > 0);
+const gTokenValid = () => gToken && Date.now() < gTokenExp - 60000;
+
+function loadGIS() {
+  return new Promise((res, rej) => {
+    if (window.google && google.accounts && google.accounts.oauth2) return res();
+    const s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client';
+    s.onload = res; s.onerror = () => rej(new Error('Impossible de charger le script Google.'));
+    document.head.appendChild(s);
+  });
+}
+async function gConnect(interactive) {
+  await loadGIS();
+  if (!gTokenClient || gTokenClient._cid !== gClientId) {
+    gTokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: gClientId,
+      scope: 'https://www.googleapis.com/auth/drive.appdata',
+      callback: () => {}
+    });
+    gTokenClient._cid = gClientId;
+  }
+  await new Promise((res, rej) => {
+    gTokenClient.callback = t => {
+      if (t.error) return rej(new Error(t.error));
+      gToken = t.access_token;
+      gTokenExp = Date.now() + (t.expires_in || 3600) * 1000;
+      kvSet('gToken', { token: gToken, exp: gTokenExp }).catch(() => {});
+      res();
+    };
+    gTokenClient.error_callback = e => rej(new Error(e.message || 'Connexion annulée.'));
+    gTokenClient.requestAccessToken({ prompt: '' });
+  });
+  updateSyncButtons();
+}
+async function gFetch(url, opts = {}) {
+  opts.headers = Object.assign({}, opts.headers, { Authorization: 'Bearer ' + gToken });
+  const r = await fetch(url, opts);
+  if (r.status === 401 || r.status === 403) { gToken = null; throw new Error('REAUTH'); }
+  if (!r.ok) throw new Error('Drive HTTP ' + r.status);
+  return r;
+}
+async function gFindFile() {
+  const r = await gFetch("https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&fields=files(id,name)&q=" +
+    encodeURIComponent("name='kiosque-sync.json'"));
+  const j = await r.json();
+  return (j.files && j.files[0]) ? j.files[0].id : null;
+}
+async function gCreateFile() {
+  const b = 'kiosque' + Date.now();
+  const body = '--' + b + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' +
+    JSON.stringify({ name: 'kiosque-sync.json', parents: ['appDataFolder'] }) +
+    '\r\n--' + b + '\r\nContent-Type: application/json\r\n\r\n{}\r\n--' + b + '--';
+  const r = await gFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',
+    { method: 'POST', headers: { 'Content-Type': 'multipart/related; boundary=' + b }, body });
+  return (await r.json()).id;
+}
+async function gSync(manual) {
+  if (!gClientId) return;
+  try {
+    if (!gTokenValid()) {
+      if (manual) await gConnect(true);
+      else { setSyncUI('err', 'Drive : cliquez « Synchroniser maintenant »'); return; }
+    }
+    setSyncUI('', 'synchronisation Drive…');
+    if (!gFileId) gFileId = (await gFindFile()) || (await gCreateFile());
+    let remote = null;
+    const rr = await gFetch('https://www.googleapis.com/drive/v3/files/' + gFileId + '?alt=media');
+    const txt = await rr.text();
+    if (txt.trim()) { try { remote = JSON.parse(txt); } catch (e) {} }
+    if (remote && (remote.cats || remote.items)) state = mergeState(state, remote);
+    purgeTombstones(state);
+    await gFetch('https://www.googleapis.com/upload/drive/v3/files/' + gFileId + '?uploadType=media',
+      { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ app: 'kiosque', version: 1, savedAt: now(), cats: state.cats, items: state.items }) });
+    await kvSet('state', state);
+    setSyncUI('ok', 'Drive synchronisé · ' + new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }));
+    renderAll();
+  } catch (e) {
+    console.error(e);
+    if (e.message === 'REAUTH') setSyncUI('err', 'Drive : session expirée — « Synchroniser maintenant »');
+    else setSyncUI('err', 'erreur de synchro Drive');
+    if (manual && e.message !== 'REAUTH') toast('Synchro Drive : ' + e.message);
+    if (manual && e.message === 'REAUTH') { try { await gConnect(true); await gSync(false); } catch (e2) {} }
+  }
+}
+
+/* ===================== déclenchement unifié ===================== */
+function syncNow(manual) {
+  if (gClientId && HOSTED) return gSync(manual);
+  if (fileHandle) return doSync(manual);
+}
+function scheduleSync() {
+  if (!fileHandle && !(gClientId && HOSTED)) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => syncNow(false), 2500);
+}
+setInterval(() => { if (document.visibilityState === 'visible') syncNow(false); }, 45000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncNow(false); });
+
+async function linkFile(create) {
+  try {
+    let h;
+    const types = [{ description: 'Fichier Kiosque (JSON)', accept: { 'application/json': ['.json'] } }];
+    if (create) h = await showSaveFilePicker({ suggestedName: 'kiosque-sync.json', types });
+    else [h] = await showOpenFilePicker({ types });
+    fileHandle = h;
+    await kvSet('fileHandle', h);
+    updateSyncButtons();
+    toast('Fichier de synchronisation lié.');
+    await doSync(true);
+  } catch (e) { /* sélection annulée */ }
+}
+
+/* ===================== récupération des articles ===================== */
+const PROXIES = [
+  u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+  u => 'https://corsproxy.io/?url=' + encodeURIComponent(u),
+  u => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u)
+];
+async function fetchTimeout(url, ms, asBlob) {
+  const c = new AbortController(); const t = setTimeout(() => c.abort(), ms);
+  try {
+    const r = await fetch(url, { signal: c.signal });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return asBlob ? await r.blob() : await r.text();
+  } finally { clearTimeout(t); }
+}
+async function throughProxies(url, asBlob) {
+  let err;
+  for (const p of PROXIES) {
+    try { return await fetchTimeout(p(url), 12000, asBlob); } catch (e) { err = e; }
+  }
+  throw err || new Error('Aucun relais disponible');
+}
+function absolutize(src, base) { try { return new URL(src, base).href; } catch (e) { return null; } }
+
+function extractMeta(html, url) {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const attr = (sel, a) => { const el = doc.querySelector(sel); return el ? el.getAttribute(a) : null; };
+  const title = (attr('meta[property="og:title"]', 'content') || (doc.querySelector('title') || {}).textContent || url)
+    .trim().replace(/\s+/g, ' ').slice(0, 200);
+  const metaDesc = (attr('meta[property="og:description"]', 'content') || attr('meta[name="description"]', 'content') || '').trim();
+  /* premiers paragraphes de l'article pour un vrai résumé */
+  const paras = [...doc.querySelectorAll('article p, main p, [itemprop="articleBody"] p, p')]
+    .map(p => p.textContent.trim().replace(/\s+/g, ' '))
+    .filter(t => t.length > 70 && !/cookie|consent|javascript|abonn/i.test(t.slice(0, 60)));
+  let resume = metaDesc;
+  for (const p of paras) {
+    if (resume.length >= 550) break;
+    if (resume.includes(p.slice(0, 50))) continue;
+    resume += (resume ? ' — ' : '') + p;
+  }
+  resume = resume.slice(0, 600);
+  const img = attr('meta[property="og:image"]', 'content') || attr('meta[name="twitter:image"]', 'content') ||
+              attr('meta[property="og:image:url"]', 'content');
+  return { title, desc: resume, img: img ? absolutize(img.trim(), url) : null };
+}
+async function makeThumb(src) {
+  const blob = await throughProxies(src, true);
+  const bmp = await createImageBitmap(blob);
+  const w = Math.min(560, bmp.width), h = Math.max(1, Math.round(bmp.height * w / bmp.width));
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+  cv.getContext('2d').drawImage(bmp, 0, 0, w, h);
+  return cv.toDataURL('image/jpeg', 0.72);
+}
+async function enrich(item) {
+  item.fetching = true; renderAll();
+  try {
+    const html = await throughProxies(item.url, false);
+    const m = extractMeta(html, item.url);
+    if (m.title) item.title = m.title;
+    if (m.desc) item.desc = m.desc;
+    if (m.img) { try { item.img = await makeThumb(m.img); } catch (e) { /* image facultative */ } }
+    item.fetchOk = true;
+  } catch (e) {
+    item.fetchOk = false;
+  }
+  delete item.fetching;
+  item.updatedAt = now();
+  persist(); renderAll();
+}
+
+/* ===================== opérations ===================== */
+const activeCats  = () => state.cats.filter(c => !c.deleted);
+const activeItems = () => state.items.filter(i => !i.deleted);
+const catById = id => activeCats().find(c => c.id === id);
+
+function addUrl(raw, catId) {
+  let url = raw.trim();
+  if (!url) return;
+  if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+  let domain; try { domain = new URL(url).hostname.replace(/^www\./, ''); } catch (e) { toast('URL invalide.'); return; }
+  if (activeItems().some(i => i.url === url)) { toast('Cet article est déjà dans votre kiosque.'); return; }
+  const item = {
+    id: uid(), url, domain, title: domain, desc: '', img: null,
+    cat: catId || null, createdAt: now(), updatedAt: now()
+  };
+  state.items.unshift(item);
+  persist(); renderAll();
+  enrich(item);
+}
+function deleteItem(id) {
+  const it = state.items.find(i => i.id === id);
+  if (!it) return;
+  it.deleted = true; it.img = null; it.desc = ''; it.updatedAt = now();
+  persist(); renderAll(); toast('Article supprimé.');
+}
+function setItemCat(id, catId) {
+  const it = state.items.find(i => i.id === id);
+  if (!it) return;
+  it.cat = catId || null; it.updatedAt = now();
+  persist(); renderAll();
+}
+function addCat(name) {
+  name = name.trim(); if (!name) return;
+  if (activeCats().some(c => c.name.toLowerCase() === name.toLowerCase())) { toast('Cette catégorie existe déjà.'); return; }
+  state.cats.push({ id: uid(), name, color: PALETTE[activeCats().length % PALETTE.length], createdAt: now(), updatedAt: now() });
+  persist(); renderAll();
+}
+function renameCat(id, name) {
+  const c = catById(id); name = name.trim();
+  if (!c || !name || c.name === name) return;
+  c.name = name; c.updatedAt = now();
+  persist(); renderAll(); toast('Catégorie renommée.');
+}
+function recolorCat(id, color) {
+  const c = catById(id); if (!c) return;
+  c.color = color; c.updatedAt = now();
+  persist(); renderAll();
+}
+function deleteCat(id) {
+  const c = catById(id); if (!c) return;
+  const nb = activeItems().filter(i => i.cat === id).length;
+  if (!confirm('Supprimer la catégorie « ' + c.name + ' » ?' + (nb ? '\n' + nb + ' article(s) passeront dans « Non classé ».' : ''))) return;
+  c.deleted = true; c.updatedAt = now();
+  activeItems().forEach(i => { if (i.cat === id) { i.cat = null; i.updatedAt = now(); } });
+  if (currentCat === id) currentCat = 'all';
+  persist(); renderAll();
+}
+
+/* ===================== rendu ===================== */
+function catOptions(selected) {
+  let h = '<option value=""' + (!selected ? ' selected' : '') + '>Non classé</option>';
+  activeCats().forEach(c => {
+    h += '<option value="' + c.id + '"' + (selected === c.id ? ' selected' : '') + '>' + esc(c.name) + '</option>';
+  });
+  return h;
+}
+function renderChips() {
+  const items = activeItems();
+  const nbNone = items.filter(i => !i.cat).length;
+  let h = '<button class="chip' + (currentCat === 'all' ? ' active' : '') + '" data-cat="all">Tous <span class="count">' + items.length + '</span></button>';
+  activeCats().forEach(c => {
+    const n = items.filter(i => i.cat === c.id).length;
+    h += '<button class="chip' + (currentCat === c.id ? ' active' : '') + '" data-cat="' + c.id + '">' +
+         '<span class="swatch" style="background:' + c.color + '"></span>' + esc(c.name) +
+         ' <span class="count">' + n + '</span></button>';
+  });
+  h += '<button class="chip' + (currentCat === 'none' ? ' active' : '') + '" data-cat="none">Non classé <span class="count">' + nbNone + '</span></button>';
+  $('#chips').innerHTML = h;
+}
+function renderManage() {
+  let h = '';
+  activeCats().forEach(c => {
+    h += '<div class="manage-row" data-id="' + c.id + '">' +
+      '<input type="color" class="swatch-lg" value="' + c.color + '" title="Couleur" data-act="color">' +
+      '<input type="text" value="' + esc(c.name) + '" maxlength="40" data-act="rename">' +
+      '<button class="btn" data-act="save">Renommer</button>' +
+      '<button class="btn ghost danger" data-act="del">Supprimer</button></div>';
+  });
+  $('#catList').innerHTML = h || '<p style="color:var(--ink-soft);font-size:13.5px;margin:0 0 8px">Aucune catégorie pour le moment.</p>';
+}
+function renderGrid() {
+  const q = query.toLowerCase();
+  let items = activeItems().filter(i =>
+    (currentCat === 'all' || (currentCat === 'none' ? !i.cat : i.cat === currentCat)) &&
+    (!q || (i.title + ' ' + i.domain + ' ' + (i.desc || '')).toLowerCase().includes(q))
+  );
+  items.sort((a, b) => b.createdAt - a.createdAt);
+  $('#countMeta').textContent = items.length ? items.length + ' article' + (items.length > 1 ? 's' : '') : '';
+  $('#empty').style.display = activeItems().length ? 'none' : '';
+  $('#grid').innerHTML = items.map(i => {
+    const c = i.cat ? catById(i.cat) : null;
+    const spine = c ? c.color : '#9AA8A0';
+    const date = new Date(i.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+    const thumb = i.img
+      ? '<img class="thumb" src="' + i.img + '" alt="" loading="lazy">'
+      : '<div class="thumb placeholder">' + esc((i.domain || '?')[0].toUpperCase()) + '</div>';
+    return '<article class="card' + (i.fetching ? ' fetching' : '') + '" style="--spine:' + spine + '" data-id="' + i.id + '">' +
+      thumb +
+      '<div class="body">' +
+        '<div class="domain">' + esc(i.domain) + '</div>' +
+        '<h2><a href="' + esc(i.url) + '" target="_blank" rel="noopener noreferrer">' + esc(i.title) + '</a></h2>' +
+        '<p class="desc">' + (i.fetching ? 'Récupération du résumé…' : esc(i.desc || 'Pas de résumé disponible.')) + '</p>' +
+        (i.fetchOk === false && !i.fetching ? '<button class="retry" data-act="retry">Le site n’a pas répondu — réessayer</button>' : '') +
+      '</div>' +
+      '<div class="foot">' +
+        '<select data-act="cat" title="Catégorie">' + catOptions(i.cat) + '</select>' +
+        '<span class="date">' + date + '</span><span class="spacer"></span>' +
+        '<button class="icon-btn" data-act="retry" title="Actualiser le résumé">↻</button>' +
+        '<button class="icon-btn danger" data-act="del" title="Supprimer">✕</button>' +
+      '</div></article>';
+  }).join('');
+}
+function renderAll() {
+  renderChips(); renderManage(); renderGrid();
+  $('#addCatSelect').innerHTML = catOptions(
+    currentCat !== 'all' && currentCat !== 'none' && catById(currentCat) ? currentCat : null
+  );
+}
+
+/* ===================== export / import ===================== */
+function exportJson() {
+  const blob = new Blob([JSON.stringify({ app: 'kiosque', version: 1, savedAt: now(), cats: state.cats, items: state.items }, null, 1)],
+    { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'kiosque-export-' + new Date().toISOString().slice(0, 10) + '.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+async function importJson(file) {
+  try {
+    const data = JSON.parse(await file.text());
+    if (!data.cats && !data.items) throw new Error('format inconnu');
+    state = mergeState(state, data);
+    purgeTombstones(state);
+    persist(); renderAll();
+    toast('Import fusionné avec vos données.');
+  } catch (e) { toast('Fichier illisible : ' + e.message); }
+}
+
+/* ===================== événements ===================== */
+$('#addForm').addEventListener('submit', e => {
+  e.preventDefault();
+  addUrl($('#urlInput').value, $('#addCatSelect').value || null);
+  $('#urlInput').value = '';
+});
+$('#searchInput').addEventListener('input', e => { query = e.target.value; renderGrid(); });
+$('#chips').addEventListener('click', e => {
+  const b = e.target.closest('[data-cat]'); if (!b) return;
+  currentCat = b.dataset.cat; renderAll();
+});
+$('#grid').addEventListener('click', e => {
+  const card = e.target.closest('.card'); if (!card) return;
+  const act = e.target.closest('[data-act]'); if (!act) return;
+  const item = state.items.find(i => i.id === card.dataset.id); if (!item) return;
+  if (act.dataset.act === 'del') deleteItem(item.id);
+  if (act.dataset.act === 'retry' && !item.fetching) enrich(item);
+});
+$('#grid').addEventListener('change', e => {
+  const card = e.target.closest('.card');
+  if (card && e.target.dataset.act === 'cat') setItemCat(card.dataset.id, e.target.value || null);
+});
+$('#btnManage').addEventListener('click', () => $('#managePanel').classList.toggle('open'));
+$('#btnAddCat').addEventListener('click', () => { addCat($('#newCatName').value); $('#newCatName').value = ''; });
+$('#newCatName').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('#btnAddCat').click(); } });
+$('#catList').addEventListener('click', e => {
+  const row = e.target.closest('.manage-row'); if (!row) return;
+  const act = e.target.dataset.act;
+  if (act === 'save') renameCat(row.dataset.id, row.querySelector('[data-act=rename]').value);
+  if (act === 'del') deleteCat(row.dataset.id);
+});
+$('#catList').addEventListener('change', e => {
+  const row = e.target.closest('.manage-row');
+  if (row && e.target.dataset.act === 'color') recolorCat(row.dataset.id, e.target.value);
+});
+$('#btnSyncPanel').addEventListener('click', () => $('#syncPanel').classList.toggle('open'));
+$('#btnCreateSync').addEventListener('click', () => linkFile(true));
+$('#btnLinkSync').addEventListener('click', () => linkFile(false));
+$('#btnSyncNow').addEventListener('click', () => syncNow(true));
+$('#gClientId').addEventListener('change', e => {
+  gClientId = e.target.value.trim();
+  kvSet('gClientId', gClientId).catch(() => {});
+  updateSyncButtons();
+});
+$('#btnGConnect').addEventListener('click', async () => {
+  gClientId = $('#gClientId').value.trim();
+  if (!gClientId) { toast('Collez d’abord votre Client ID Google.'); return; }
+  if (!HOSTED) { toast('La connexion Google exige une page servie en https (voir le guide).'); return; }
+  await kvSet('gClientId', gClientId).catch(() => {});
+  try {
+    await gConnect(true);
+    toast('Google Drive connecté.');
+    await gSync(true);
+  } catch (e) { toast('Connexion Google : ' + e.message); }
+});
+$('#btnGDisconnect').addEventListener('click', async () => {
+  gToken = null; gTokenExp = 0; gFileId = null;
+  await kvSet('gToken', null).catch(() => {});
+  updateSyncButtons(); setSyncUI('', 'Drive déconnecté');
+});
+$('#btnUnlink').addEventListener('click', async () => {
+  fileHandle = null; await kvSet('fileHandle', null);
+  updateSyncButtons(); setSyncUI('', 'synchro non liée');
+});
+$('#btnExport').addEventListener('click', exportJson);
+$('#btnImport').addEventListener('click', () => $('#importFile').click());
+$('#importFile').addEventListener('change', e => { if (e.target.files[0]) importJson(e.target.files[0]); e.target.value = ''; });
+
+/* ===================== démarrage ===================== */
+(async function init() {
+  try {
+    const saved = await kvGet('state');
+    if (saved && (saved.cats || saved.items)) state = saved;
+  } catch (e) { console.error(e); }
+  if (!state.cats.length && !state.items.length) addCat('À lire');
+
+  /* --- option A : API Google Drive --- */
+  try {
+    gClientId = (await kvGet('gClientId')) || '';
+    $('#gClientId').value = gClientId;
+    const t = await kvGet('gToken');
+    if (t && t.token && Date.now() < t.exp - 60000) { gToken = t.token; gTokenExp = t.exp; }
+  } catch (e) {}
+  if (!HOSTED) {
+    $('#gHint').innerHTML = 'Cette page est ouverte en local (file://). Google n’autorise la connexion que depuis ' +
+      'une adresse <b>https</b> : déposez ce fichier sur <b>GitHub Pages</b> (gratuit, statique — voir le guide), ' +
+      'puis ouvrez-le depuis cette adresse sur tous vos appareils, iPhone compris.';
+  } else {
+    $('#gHint').innerHTML = 'Une fois connecté, la synchro est automatique (à chaque modification, toutes les 45 s ' +
+      'et au retour sur l’onglet). La session Google expire après ~1 h d’inactivité : un clic sur ' +
+      '« Synchroniser maintenant » la relance.';
+    if (gClientId && gTokenValid()) gSync(false);
+  }
+
+  if (FS_OK) {
+    $('#fsHint').innerHTML = 'Le fichier doit être dans un dossier synchronisé par un client de bureau ' +
+      '(Drive pour ordinateur, OneDrive, Dropbox…). Sans client installé, préférez l’option A. ' +
+      'Après un redémarrage du navigateur, cliquez une fois sur « Synchroniser maintenant » pour ré-autoriser l’accès.';
+    try {
+      const h = await kvGet('fileHandle');
+      if (h) {
+        fileHandle = h; updateSyncButtons();
+        if (await h.queryPermission({ mode: 'readwrite' }) === 'granted') doSync(false);
+        else setSyncUI('', 'cliquez sur « Synchroniser maintenant »');
+      }
+    } catch (e) { console.error(e); }
+  } else {
+    $('#fsRow').style.display = 'none';
+    $('#fsHint').innerHTML = 'Ce navigateur (Safari / iPhone) ne permet pas la liaison automatique à un fichier : ' +
+      'utilisez l’option A (page hébergée + compte Google) ou l’option C (Exporter / Importer via l’app Fichiers → Drive).';
+  }
+  updateSyncButtons();
+  renderAll();
+})();
+</script>
+</body>
+</html>
