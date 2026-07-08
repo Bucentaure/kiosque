@@ -25,6 +25,9 @@ self.addEventListener('fetch', e => {
   e.respondWith(
     fetch(e.request)
       .then(resp => {
+        /* Ne jamais avaler une page d'erreur (404 si le site est indisponible) :
+           on retombe sur la copie locale de l'app. */
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
         const copy = resp.clone();
         caches.open(CACHE).then(c => c.put(e.request, copy));
         return resp;
