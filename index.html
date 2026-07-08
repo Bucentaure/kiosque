@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Kiosque — vos articles à lire</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📰</text></svg>">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#17694E">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Kiosque">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -242,6 +248,15 @@ main{max-width:1100px;margin:0 auto;padding:0 20px}
       <button class="btn" id="btnSyncNow" disabled>Synchroniser maintenant</button>
       <input type="file" id="importFile" accept="application/json" hidden>
     </div>
+
+    <p style="margin-top:16px"><b>Migration depuis Pocket.</b> Importez votre export Pocket
+    (fichier <b>CSV</b> ou <b>HTML</b>) : vos tags deviennent des catégories, les dates d’ajout sont conservées,
+    les doublons ignorés. Les résumés et images se récupèrent ensuite avec le second bouton.</p>
+    <div class="row">
+      <button class="btn" id="btnPocket">Importer un export Pocket…</button>
+      <button class="btn" id="btnEnrichAll">Compléter les résumés manquants</button>
+      <input type="file" id="pocketFile" accept=".csv,.html,.htm,text/csv,text/html" hidden>
+    </div>
   </div>
 
   <div class="manage" id="managePanel">
@@ -277,6 +292,14 @@ main{max-width:1100px;margin:0 auto;padding:0 20px}
 
 <script>
 'use strict';
+/* ═══════════════════════════════════════════════════════════════════
+   FACULTATIF MAIS RECOMMANDÉ : collez votre Client ID Google entre les
+   guillemets ci-dessous (celui en …apps.googleusercontent.com).
+   Il sera alors pré-rempli sur TOUS vos appareils, plus rien à saisir.
+   (Un Client ID n'est pas un secret : il peut figurer dans le fichier.)
+   ═══════════════════════════════════════════════════════════════════ */
+const DEFAULT_GOOGLE_CLIENT_ID = '';
+
 /* ===================== utilitaires ===================== */
 const $ = s => document.querySelector(s);
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -314,9 +337,17 @@ async function kvGet(k) {
 async function kvSet(k, v) {
   const d = await idb();
   return new Promise((res, rej) => {
-    const q = d.transaction('kv', 'readwrite').objectStore('kv').put(v, k);
-    q.onsuccess = () => res(); q.onerror = () => rej(q.error);
+    const tx = d.transaction('kv', 'readwrite');
+    tx.objectStore('kv').put(v, k);
+    tx.oncomplete = () => res();          /* on attend la validation réelle sur disque */
+    tx.onerror = () => rej(tx.error);
+    tx.onabort = () => rej(tx.error);
   });
+}
+function saveClientId(v) {
+  gClientId = (v || '').trim();
+  try { localStorage.setItem('kiosque-gcid', gClientId); } catch (e) {} /* synchrone : survit à une redirection */
+  kvSet('gClientId', gClientId).catch(() => {});
 }
 
 /* ===================== fusion (multi-appareils) ===================== */
@@ -397,7 +428,36 @@ function loadGIS() {
     document.head.appendChild(s);
   });
 }
+const IOS_LIKE = /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const STANDALONE = navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
+
+function gRedirectAuth() {
+  /* Connexion sans popup : on quitte la page vers Google, qui nous renvoie ici avec le jeton. */
+  const redirect = location.origin + location.pathname.replace(/index\.html$/, '');
+  const p = new URLSearchParams({
+    client_id: gClientId,
+    redirect_uri: redirect,
+    response_type: 'token',
+    scope: 'https://www.googleapis.com/auth/drive.appdata',
+    include_granted_scopes: 'true'
+  });
+  location.assign('https://accounts.google.com/o/oauth2/v2/auth?' + p.toString());
+}
+function gReadTokenFromHash() {
+  if (!location.hash || location.hash.indexOf('access_token=') === -1) return false;
+  const h = new URLSearchParams(location.hash.slice(1));
+  const tok = h.get('access_token');
+  history.replaceState(null, '', location.pathname + location.search);
+  if (!tok) return false;
+  gToken = tok;
+  gTokenExp = Date.now() + parseInt(h.get('expires_in') || '3600', 10) * 1000;
+  kvSet('gToken', { token: gToken, exp: gTokenExp }).catch(() => {});
+  return true;
+}
 async function gConnect(interactive) {
+  /* Sur iPhone / app installée, la popup est bloquée : redirection directe. */
+  if (IOS_LIKE || STANDALONE) { gRedirectAuth(); return new Promise(() => {}); }
   await loadGIS();
   if (!gTokenClient || gTokenClient._cid !== gClientId) {
     gTokenClient = google.accounts.oauth2.initTokenClient({
@@ -415,7 +475,11 @@ async function gConnect(interactive) {
       kvSet('gToken', { token: gToken, exp: gTokenExp }).catch(() => {});
       res();
     };
-    gTokenClient.error_callback = e => rej(new Error(e.message || 'Connexion annulée.'));
+    gTokenClient.error_callback = e => {
+      const msg = (e && (e.message || e.type)) || '';
+      if (/popup/i.test(msg)) { gRedirectAuth(); return; }
+      rej(new Error(msg || 'Connexion annulée.'));
+    };
     gTokenClient.requestAccessToken({ prompt: '' });
   });
   updateSyncButtons();
@@ -697,6 +761,112 @@ function renderAll() {
   );
 }
 
+/* ===================== import Pocket ===================== */
+function parseCsv(text) {
+  /* petit parseur CSV gérant guillemets et virgules dans les titres */
+  const rows = []; let row = [], cell = '', inQ = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inQ) {
+      if (ch === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else inQ = false; }
+      else cell += ch;
+    } else if (ch === '"') inQ = true;
+    else if (ch === ',') { row.push(cell); cell = ''; }
+    else if (ch === '\n' || ch === '\r') {
+      if (ch === '\r' && text[i + 1] === '\n') i++;
+      row.push(cell); cell = '';
+      if (row.some(c => c !== '')) rows.push(row);
+      row = [];
+    } else cell += ch;
+  }
+  row.push(cell);
+  if (row.some(c => c !== '')) rows.push(row);
+  return rows;
+}
+function parsePocket(text, isHtml) {
+  const out = [];
+  if (isHtml) {
+    const doc = new DOMParser().parseFromString(text, 'text/html');
+    doc.querySelectorAll('a[href]').forEach(a => {
+      const t = parseInt(a.getAttribute('time_added') || '0', 10);
+      out.push({
+        url: a.getAttribute('href'),
+        title: (a.textContent || '').trim(),
+        tags: (a.getAttribute('tags') || '').split(',').map(s => s.trim()).filter(Boolean),
+        added: t ? t * 1000 : now()
+      });
+    });
+  } else {
+    const rows = parseCsv(text);
+    if (!rows.length) return out;
+    const head = rows[0].map(h => h.trim().toLowerCase());
+    const iUrl = head.indexOf('url'), iTitle = head.indexOf('title'),
+          iTime = head.indexOf('time_added'), iTags = head.indexOf('tags');
+    if (iUrl === -1) return out;
+    rows.slice(1).forEach(r => {
+      const t = parseInt((iTime >= 0 && r[iTime]) || '0', 10);
+      out.push({
+        url: (r[iUrl] || '').trim(),
+        title: (iTitle >= 0 ? r[iTitle] : '').trim(),
+        tags: (iTags >= 0 ? (r[iTags] || '') : '').split('|').map(s => s.trim()).filter(Boolean),
+        added: t ? t * 1000 : now()
+      });
+    });
+  }
+  return out.filter(x => /^https?:\/\//i.test(x.url));
+}
+async function importPocket(file) {
+  try {
+    const text = await file.text();
+    const isHtml = /\.html?$/i.test(file.name) || /^\s*</.test(text);
+    const entries = parsePocket(text, isHtml);
+    if (!entries.length) { toast('Aucun lien trouvé dans ce fichier — est-ce bien un export Pocket ?'); return; }
+    const existing = new Set(activeItems().map(i => i.url));
+    const catByName = {};
+    activeCats().forEach(c => catByName[c.name.toLowerCase()] = c.id);
+    let added = 0, newCats = 0;
+    for (const e of entries) {
+      if (existing.has(e.url)) continue;
+      existing.add(e.url);
+      let catId = null;
+      const tag = e.tags[0];
+      if (tag) {
+        const key = tag.toLowerCase();
+        if (!catByName[key]) {
+          const c = { id: uid(), name: tag, color: PALETTE[(activeCats().length + newCats) % PALETTE.length],
+                      createdAt: now(), updatedAt: now() };
+          state.cats.push(c); catByName[key] = c.id; newCats++;
+        }
+        catId = catByName[key];
+      }
+      let domain; try { domain = new URL(e.url).hostname.replace(/^www\./, ''); } catch (err) { continue; }
+      state.items.push({
+        id: uid(), url: e.url, domain, title: e.title || domain, desc: '', img: null,
+        cat: catId, createdAt: e.added, updatedAt: now()
+      });
+      added++;
+    }
+    persist(); renderAll();
+    toast(added + ' article(s) importé(s) depuis Pocket' + (newCats ? ', ' + newCats + ' catégorie(s) créée(s)' : '') +
+      (added ? '. Utilisez « Compléter les résumés manquants ».' : '.'));
+  } catch (e) { toast('Import Pocket impossible : ' + e.message); }
+}
+let enrichingAll = false;
+async function enrichAll() {
+  if (enrichingAll) { enrichingAll = false; return; } /* second clic = pause */
+  const targets = activeItems().filter(i => !i.desc && !i.fetching);
+  if (!targets.length) { toast('Tous les articles ont déjà un résumé.'); return; }
+  enrichingAll = true;
+  const btn = $('#btnEnrichAll');
+  for (let n = 0; n < targets.length && enrichingAll; n++) {
+    btn.textContent = 'Récupération ' + (n + 1) + '/' + targets.length + ' — cliquer pour mettre en pause';
+    try { await enrich(targets[n]); } catch (e) {}
+  }
+  btn.textContent = 'Compléter les résumés manquants';
+  toast(enrichingAll ? 'Résumés récupérés.' : 'Mis en pause — recliquez pour reprendre.');
+  enrichingAll = false;
+}
+
 /* ===================== export / import ===================== */
 function exportJson() {
   const blob = new Blob([JSON.stringify({ app: 'kiosque', version: 1, savedAt: now(), cats: state.cats, items: state.items }, null, 1)],
@@ -756,16 +926,12 @@ $('#btnSyncPanel').addEventListener('click', () => $('#syncPanel').classList.tog
 $('#btnCreateSync').addEventListener('click', () => linkFile(true));
 $('#btnLinkSync').addEventListener('click', () => linkFile(false));
 $('#btnSyncNow').addEventListener('click', () => syncNow(true));
-$('#gClientId').addEventListener('change', e => {
-  gClientId = e.target.value.trim();
-  kvSet('gClientId', gClientId).catch(() => {});
-  updateSyncButtons();
-});
+$('#gClientId').addEventListener('input', e => { saveClientId(e.target.value); updateSyncButtons(); });
+$('#gClientId').addEventListener('change', e => { saveClientId(e.target.value); updateSyncButtons(); });
 $('#btnGConnect').addEventListener('click', async () => {
-  gClientId = $('#gClientId').value.trim();
+  saveClientId($('#gClientId').value);
   if (!gClientId) { toast('Collez d’abord votre Client ID Google.'); return; }
   if (!HOSTED) { toast('La connexion Google exige une page servie en https (voir le guide).'); return; }
-  await kvSet('gClientId', gClientId).catch(() => {});
   try {
     await gConnect(true);
     toast('Google Drive connecté.');
@@ -784,6 +950,9 @@ $('#btnUnlink').addEventListener('click', async () => {
 $('#btnExport').addEventListener('click', exportJson);
 $('#btnImport').addEventListener('click', () => $('#importFile').click());
 $('#importFile').addEventListener('change', e => { if (e.target.files[0]) importJson(e.target.files[0]); e.target.value = ''; });
+$('#btnPocket').addEventListener('click', () => $('#pocketFile').click());
+$('#pocketFile').addEventListener('change', e => { if (e.target.files[0]) importPocket(e.target.files[0]); e.target.value = ''; });
+$('#btnEnrichAll').addEventListener('click', enrichAll);
 
 /* ===================== démarrage ===================== */
 (async function init() {
@@ -795,10 +964,17 @@ $('#importFile').addEventListener('change', e => { if (e.target.files[0]) import
 
   /* --- option A : API Google Drive --- */
   try {
-    gClientId = (await kvGet('gClientId')) || '';
+    try { gClientId = localStorage.getItem('kiosque-gcid') || ''; } catch (e) {}
+    if (!gClientId) gClientId = (await kvGet('gClientId')) || '';
+    if (!gClientId && DEFAULT_GOOGLE_CLIENT_ID) { gClientId = DEFAULT_GOOGLE_CLIENT_ID; saveClientId(gClientId); }
     $('#gClientId').value = gClientId;
-    const t = await kvGet('gToken');
-    if (t && t.token && Date.now() < t.exp - 60000) { gToken = t.token; gTokenExp = t.exp; }
+    const fresh = gReadTokenFromHash();   /* retour d'une connexion par redirection */
+    if (!fresh) {
+      const t = await kvGet('gToken');
+      if (t && t.token && Date.now() < t.exp - 60000) { gToken = t.token; gTokenExp = t.exp; }
+    } else {
+      toast('Google Drive connecté.');
+    }
   } catch (e) {}
   if (!HOSTED) {
     $('#gHint').innerHTML = 'Cette page est ouverte en local (file://). Google n’autorise la connexion que depuis ' +
@@ -830,6 +1006,11 @@ $('#importFile').addEventListener('change', e => { if (e.target.files[0]) import
   }
   updateSyncButtons();
   renderAll();
+
+  /* PWA : mise en cache hors ligne + installation */
+  if (HOSTED && 'serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(e => console.warn('SW :', e));
+  }
 })();
 </script>
 </body>
